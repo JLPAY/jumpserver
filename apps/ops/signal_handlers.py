@@ -155,13 +155,21 @@ def task_sent_handler(headers=None, body=None, **kwargs):
     request = get_current_request()
     if request and request.user.is_authenticated:
         data['creator'] = request.user
-
+    handle_ops_job_task(args, data, task)
     with transaction.atomic():
         try:
             CeleryTaskExecution.objects.create(**data)
         except Exception as e:
             logger.error('Create celery task execution error: {}'.format(e))
         CeleryTask.objects.filter(name=task).update(date_last_publish=timezone.now())
+
+
+def handle_ops_job_task(args, data, task):
+    if task == 'ops.tasks.run_ops_job':
+        job_id = args[0] if args else ''
+        job = Job.objects.filter(id=job_id).first()
+        if job and "creator" not in data:
+            data['creator'] = job.creator
 
 
 @receiver(django_ready)
